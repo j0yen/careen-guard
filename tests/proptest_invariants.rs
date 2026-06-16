@@ -32,8 +32,8 @@ proptest! {
     fn event_serializes_and_deserializes(
         pct_before in 0u8..=100u8,
         pct_after in 0u8..=100u8,
-        bytes_reclaimed in 0u64..=u64::MAX,
-        reclaimable_bytes in 0u64..=u64::MAX,
+        bytes_reclaimed in 0u64..u64::MAX,
+        reclaimable_bytes in 0u64..u64::MAX,
     ) {
         let ev = Event::new(Level::Ok, pct_before, pct_after, bytes_reclaimed, reclaimable_bytes, vec![]);
         let json = serde_json::to_string(&ev).expect("serialize");

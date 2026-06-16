@@ -1,4 +1,5 @@
 //! AC7: --event-sink appends exactly one JSON line per pass to the named file.
+#![allow(unsafe_code)]
 
 use careen_guard::event::Event;
 use careen_guard::guard::RunArgs;

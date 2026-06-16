@@ -133,14 +133,14 @@ fn sweep_to_low_water(
                 projected = disk::projected_used_pct(usage, bytes_reclaimed);
             }
             SweepResult::Locked => {
-                // Build-locked: skip this candidate and continue (AC8)
+                // Build-locked: skip this candidate and continue (AC8).
+                // eprintln is intentional here — this is operational status
+                // for a daemon-style tool where stderr is the audit trail.
                 #[allow(clippy::print_stderr)]
-                {
-                    eprintln!(
-                        "careen-guard: {} is build-locked, skipping",
-                        candidate.path
-                    );
-                }
+                eprintln!(
+                    "careen-guard: {} is build-locked, skipping",
+                    candidate.path
+                );
             }
         }
     }

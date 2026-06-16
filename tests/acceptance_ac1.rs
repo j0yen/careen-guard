@@ -3,6 +3,7 @@
 //! Injects mock disk usage via BG_MOCK_DISK_TOTAL / BG_MOCK_DISK_FREE.
 //! Points CAREEN_SURVEY_BIN / CAREEN_SWEEP_BIN at /bin/false to prove zero
 //! subprocess calls (any invocation would make the binary return non-zero).
+#![allow(unsafe_code)]
 
 use careen_guard::event::{Event, Level};
 use careen_guard::guard::RunArgs;

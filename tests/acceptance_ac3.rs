@@ -1,5 +1,6 @@
 //! AC3: Breach → selects live target dirs descending by size, emits Breach event
 //! with bytes_reclaimed > 0 and swept paths in candidates.
+#![allow(unsafe_code)]
 
 use careen_guard::event::{Event, Level};
 use careen_guard::guard::RunArgs;
@@ -17,10 +18,7 @@ fn acceptance_ac3_breach_selects_descending_and_sweeps() {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
         // survey-breach.sh returns two live candidates; combined they resolve breach
-        std::env::set_var(
-            "CAREEN_SURVEY_BIN",
-            format!("{fixtures}/survey-breach.sh"),
-        );
+        std::env::set_var("CAREEN_SURVEY_BIN", format!("{fixtures}/survey-breach.sh"));
         std::env::set_var("CAREEN_SWEEP_BIN", format!("{fixtures}/sweep-ok.sh"));
     }
     let _cleanup = EnvCleanup;

@@ -1,4 +1,5 @@
 //! AC2: Advisory band → Warn event with non-zero reclaimable_bytes, zero deletions.
+#![allow(unsafe_code)]
 
 use careen_guard::event::{Event, Level};
 use careen_guard::guard::RunArgs;
@@ -15,10 +16,7 @@ fn acceptance_ac2_warn_event_advisory_band() {
     unsafe {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
-        std::env::set_var(
-            "CAREEN_SURVEY_BIN",
-            format!("{fixtures}/survey-warn.sh"),
-        );
+        std::env::set_var("CAREEN_SURVEY_BIN", format!("{fixtures}/survey-warn.sh"));
         // sweep must NOT be invoked in advisory band
         std::env::set_var("CAREEN_SWEEP_BIN", "/bin/false");
     }

@@ -2,8 +2,9 @@
 //!
 //! Fixture: survey-mixed.sh returns one is_live=false (ballast's domain) and
 //! one is_live=true. Only the live one must appear in candidates.
+#![allow(unsafe_code)]
 
-use careen_guard::event::{Event, Level};
+use careen_guard::event::Event;
 use careen_guard::guard::RunArgs;
 use tempfile::NamedTempFile;
 
@@ -19,10 +20,7 @@ fn acceptance_ac6_only_live_dirs_swept() {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
         // survey-mixed.sh: one ballast-eligible (is_live=false), one careen-eligible
-        std::env::set_var(
-            "CAREEN_SURVEY_BIN",
-            format!("{fixtures}/survey-mixed.sh"),
-        );
+        std::env::set_var("CAREEN_SURVEY_BIN", format!("{fixtures}/survey-mixed.sh"));
         std::env::set_var("CAREEN_SWEEP_BIN", format!("{fixtures}/sweep-ok.sh"));
     }
     let _cleanup = EnvCleanup;
@@ -52,20 +50,11 @@ fn acceptance_ac6_only_live_dirs_swept() {
     let ev: Event = serde_json::from_str(lines[0]).expect("parse event JSON");
 
     // The ballast-eligible dir (old-crate, is_live=false) must NOT be in candidates
-    let has_ballast_dir = ev
-        .candidates
-        .iter()
-        .any(|p| p.contains("old-crate"));
+    let has_ballast_dir = ev.candidates.iter().any(|p| p.contains("old-crate"));
     assert!(!has_ballast_dir, "ballast-eligible dir must not be swept");
 
-    // The live dir must be present (if breach was resolved or attempted)
-    // Note: survey-mixed.sh has 5GB live candidate; with 98% usage and 100GB disk,
-    // 5GB reclaim = 5% reduction → 93% still above 90% → BreachUnresolved.
-    // But the live dir MUST appear in candidates (it was attempted).
-    let has_live_dir = ev
-        .candidates
-        .iter()
-        .any(|p| p.contains("recall"));
+    // The live dir must be present (it was attempted)
+    let has_live_dir = ev.candidates.iter().any(|p| p.contains("recall"));
     assert!(has_live_dir, "live dir must appear in candidates");
 }
 

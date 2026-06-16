@@ -1,4 +1,5 @@
 //! AC4: Candidates exhausted but still above high-water → BreachUnresolved.
+#![allow(unsafe_code)]
 
 use careen_guard::event::{Event, Level};
 use careen_guard::guard::RunArgs;
@@ -16,10 +17,7 @@ fn acceptance_ac4_breach_unresolved_when_candidates_exhaust() {
     unsafe {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
-        std::env::set_var(
-            "CAREEN_SURVEY_BIN",
-            format!("{fixtures}/survey-small.sh"),
-        );
+        std::env::set_var("CAREEN_SURVEY_BIN", format!("{fixtures}/survey-small.sh"));
         std::env::set_var("CAREEN_SWEEP_BIN", format!("{fixtures}/sweep-ok.sh"));
     }
     let _cleanup = EnvCleanup;
@@ -48,11 +46,7 @@ fn acceptance_ac4_breach_unresolved_when_candidates_exhaust() {
     assert_eq!(lines.len(), 1, "exactly one event line");
 
     let ev: Event = serde_json::from_str(lines[0]).expect("parse event JSON");
-    assert_eq!(
-        ev.level,
-        Level::BreachUnresolved,
-        "expected BreachUnresolved"
-    );
+    assert_eq!(ev.level, Level::BreachUnresolved, "expected BreachUnresolved");
 }
 
 struct EnvCleanup;
