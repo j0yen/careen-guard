@@ -55,7 +55,7 @@ pub fn estimate_reclaimable(roots: &[std::path::PathBuf]) -> u64 {
         .unwrap_or(0)
 }
 
-/// Gather live target dir candidates from careen-survey, sorted descending by reclaimable_bytes.
+/// Gather live target dir candidates from careen-survey, sorted descending by `reclaimable_bytes`.
 ///
 /// Only returns dirs classified as live (binary-current). Ballast-eligible
 /// (stale/uninstalled) dirs are excluded — that is ballast-guard's domain (AC6).

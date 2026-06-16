@@ -101,7 +101,7 @@ fn log_locked(path: &str) {
 
 /// Run the sweep loop until usage drops below `low_water_pct` or candidates exhaust.
 ///
-/// Candidates are sorted descending by reclaimable_bytes (AC3).
+/// Candidates are sorted descending by `reclaimable_bytes` (AC3).
 /// Build-locked targets are skipped (AC8).
 fn sweep_to_low_water(
     config: &Config,
@@ -156,8 +156,7 @@ fn sweep_to_low_water(
         config
             .roots
             .first()
-            .map(PathBuf::as_path)
-            .unwrap_or(Path::new("/")),
+            .map_or_else(|| Path::new("/"), PathBuf::as_path),
     )
     .map(disk::DiskUsage::used_pct)
     .unwrap_or(projected);
