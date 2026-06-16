@@ -1,0 +1,136 @@
+{
+  "schema": "autobuilder.intent_card.v1",
+  "prd_source": "/home/jsy/wintermute/autobuilder/PRD-careen-guard.md",
+  "intent_slug": "careen-guard",
+  "root_motivation": "The disk at 97% is accelerating toward full because the two largest target dirs (recall 13G, brain 13G) are LIVE and ballast-guard structurally cannot touch them. careen-guard is the SLO arm that covers exactly what ballast cannot: live target dirs that need selective sweep rather than whole-dir reap. It must compose with ballast-guard via the same event schema so there is one coherent disk-defense story instead of two competing tools with divergent telemetry.",
+  "user_persona": "Joe Yen running wintermute on an Arch laptop where df / = 97%. ballast-pilot fires hourly but cannot reclaim the 26G in live target dirs. careen-guard runs as the complementary arm, invoked by the same monitoring story.",
+  "unfakeable_metric": {
+    "name": "acceptance_tests_passing_count",
+    "lower_is_better": false,
+    "harness_command": "cargo test --workspace --no-fail-fast",
+    "target": 8
+  },
+  "acceptance_criteria": [
+    {
+      "id": "AC1",
+      "level": "MUST",
+      "description": "`careen-guard run --mount <fixture>` below the advisory threshold emits a single `Ok` JSON event and runs no sweep.",
+      "test": "tests/acceptance_ac1.rs: inject mock disk below advisory_pct; assert event.level == Ok and zero careen-sweep invocations."
+    },
+    {
+      "id": "AC2",
+      "level": "MUST",
+      "description": "In the advisory band, it emits a `Warn` event carrying a non-zero `reclaimable_bytes` estimate and performs zero deletions.",
+      "test": "tests/acceptance_ac2.rs: inject mock disk in advisory band with mocked careen-survey returning non-zero estimate; assert Warn event with reclaimable_bytes > 0 and no sweep."
+    },
+    {
+      "id": "AC3",
+      "level": "MUST",
+      "description": "On a simulated breach, it selects live target dirs in descending-size order, invokes careen-sweep against them, and emits `Breach` with `bytes_reclaimed > 0` and the swept paths in `candidates`.",
+      "test": "tests/acceptance_ac3.rs: inject breach-level disk; mock careen-survey and careen-sweep; assert Breach event, bytes_reclaimed > 0, candidates contains swept paths in descending-size order."
+    },
+    {
+      "id": "AC4",
+      "level": "MUST",
+      "description": "When safe candidates are exhausted but usage is still above high-water, it emits `BreachUnresolved` (not a panic, not a silent exit).",
+      "test": "tests/acceptance_ac4.rs: inject breach-level disk with mock returning only a small candidate that cannot bring usage below high-water; assert BreachUnresolved event."
+    },
+    {
+      "id": "AC5",
+      "level": "MUST",
+      "description": "Schema compatibility: a careen-guard event JSON is successfully deserialized by ballast-guard's `Event` type (or an equivalent test proving field-for-field serde parity).",
+      "test": "tests/acceptance_ac5.rs: emit a careen-guard Event JSON for each level; parse with serde_json into ballast_guard::event::Event (or a local replica of the struct); assert all fields round-trip correctly."
+    },
+    {
+      "id": "AC6",
+      "level": "MUST",
+      "description": "careen-guard never selects a dir whose binary is stale/uninstalled (ballast's territory) — asserted by a fixture mixing a ballast-eligible dir and a careen-eligible dir; only the latter is touched.",
+      "test": "tests/acceptance_ac6.rs: mock careen-survey returning one stale-uninstalled dir and one live dir; assert only the live dir appears in sweep candidates."
+    },
+    {
+      "id": "AC7",
+      "level": "MUST",
+      "description": "`--event-sink` appends one JSON line per pass to the named file in addition to stdout, matching ballast-guard's sink behavior.",
+      "test": "tests/acceptance_ac7.rs: run a guard pass with --event-sink set to a tempfile; assert the file has exactly one JSON line that parses as a valid Event."
+    },
+    {
+      "id": "AC8",
+      "level": "MUST",
+      "description": "A breach pass that calls careen-sweep respects sweep's lock-safety: if a selected target is build-locked, it is skipped (not corrupted) and the pass continues to the next candidate.",
+      "test": "tests/acceptance_ac8.rs: mock careen-sweep returning lock-busy on first candidate, success on second; assert second candidate swept, first skipped, event shows reclaimed bytes from second only."
+    }
+  ],
+  "scope": [
+    "CLI `careen-guard run` with --mount, --config, --event-sink flags",
+    "Read disk usage via statvfs with BG_MOCK_DISK_* env var injection for tests",
+    "Three-band SLO evaluation: Ok / Warn / Breach / BreachUnresolved",
+    "Invoke careen-survey (subprocess) to estimate reclaimable bytes in advisory band",
+    "Invoke careen-survey (subprocess) to enumerate live target dir candidates on breach",
+    "Invoke careen-sweep (subprocess) to sweep candidates in descending-size order",
+    "Skip build-locked candidates on sweep failure, continue to next",
+    "Emit ballast-guard-compatible Event JSON to stdout + optional --event-sink file",
+    "Config via guard.toml (same shape as ballast's Config: high/low/advisory watermarks)"
+  ],
+  "non_goals": [
+    "systemd timer unit (careen-pilot follow-on)",
+    "rebuild-cost accounting (careen-ledger)",
+    "shared watermark evaluator with ballast-guard (open question #1, future)",
+    "modifying careen-sweep or careen-survey",
+    "whole-dir reaping (ballast-guard's domain)",
+    "Live binary detection logic (delegated to careen-survey's classification)"
+  ],
+  "hard_constraints": {
+    "rust_edition": "2024",
+    "target_kind": "cli",
+    "deny_unsafe": true,
+    "msrv": "1.85",
+    "max_deps": null,
+    "additional": {
+      "event_schema_compat": "careen-guard Event JSON must deserialize against ballast_guard::event::Event unchanged",
+      "subprocess_only": "careen-sweep and careen-survey are invoked as subprocesses, not linked as libraries",
+      "mock_injection": "BG_MOCK_DISK_TOTAL + BG_MOCK_DISK_FREE env vars for disk; mock careen-survey/sweep via env var path override"
+    }
+  },
+  "five_whys_trace": [
+    {
+      "why": 1,
+      "q": "Why do we need careen-guard when ballast-guard already exists?",
+      "a": "ballast-guard skips any target dir whose binary is current/installed. The two heaviest dirs (recall 13G, brain 13G) are always current, so ballast never touches them."
+    },
+    {
+      "why": 2,
+      "q": "Why does ballast skip current-binary dirs?",
+      "a": "Its safety model is whole-dir reap — deleting an in-use binary would break the running system. A finer-grained intra-target sweep is a different operation requiring a different tool."
+    },
+    {
+      "why": 3,
+      "q": "Why not just run `cargo clean` on those dirs?",
+      "a": "cargo clean deletes everything including the current binary and all build caches, forcing a full cold rebuild (often 10-20 min). careen-sweep only removes safely regenerable artifacts, preserving the binary and hot cache."
+    },
+    {
+      "why": 4,
+      "q": "Why must careen-guard emit the same event schema as ballast-guard?",
+      "a": "A split telemetry story means two separate monitoring pipelines, two log formats, two dashboards. Composability requires one canonical `Event` shape so ballast-pilot (or a future careen-pilot) can handle both without forking."
+    },
+    {
+      "why": 5,
+      "q": "Why is this shipped as a standalone guard rather than a flag on ballast-guard?",
+      "a": "ballast-guard's design is whole-dir reap with a `SafetyClass` filter. Adding intra-target sweep as a flag would require plumbing careen-survey's four-class inventory into ballast's two-class model, violating its single-responsibility. Separate tools compose better than a multipurpose monolith."
+    }
+  ],
+  "ambiguities_resolved": [
+    {
+      "question": "Should careen-guard depend on ballast-guard's event module as a library or replicate its serde contract?",
+      "resolution": "Replicate the serde contract locally (same field names, same kebab-case Level enum) and prove compatibility via an AC5 deserialization test. Avoids a circular dependency and keeps careen-guard standalone-deployable."
+    },
+    {
+      "question": "How are careen-survey and careen-sweep invoked when they are not yet installed?",
+      "resolution": "Same pattern as ballast-guard uses for ballast-survey/ballast-reap: invoke as subprocesses, return a clear 'not on PATH' error. Tests mock them via environment variable path overrides pointing to a test fixture script."
+    },
+    {
+      "question": "What does 'live' mean for candidate selection?",
+      "resolution": "A dir is 'live' if careen-survey classifies it as having a current binary. careen-guard trusts careen-survey's classification output; it does not re-implement the check."
+    }
+  ],
+  "created_at": "2026-06-16T17:55:00Z"
+}
