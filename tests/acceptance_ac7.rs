@@ -1,6 +1,8 @@
 //! AC7: --event-sink appends exactly one JSON line per pass to the named file.
 #![allow(unsafe_code)]
 
+use std::sync::Mutex;
+
 use careen_guard::event::Event;
 use careen_guard::guard::RunArgs;
 use tempfile::NamedTempFile;
@@ -9,8 +11,13 @@ use tempfile::NamedTempFile;
 const TOTAL: u64 = 100 * 1024 * 1024 * 1024;
 const FREE: u64 = 20 * 1024 * 1024 * 1024;
 
+/// Serialise the two AC7 tests so their shared env vars don't race.
+static ENV_LOCK: Mutex<()> = Mutex::new(());
+
 #[test]
 fn acceptance_ac7_event_sink_appends_json_line() {
+    let _guard = ENV_LOCK.lock().expect("env lock");
+
     unsafe {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
@@ -48,6 +55,8 @@ fn acceptance_ac7_event_sink_appends_json_line() {
 
 #[test]
 fn acceptance_ac7_event_sink_appends_not_overwrites() {
+    let _guard = ENV_LOCK.lock().expect("env lock");
+
     unsafe {
         std::env::set_var("BG_MOCK_DISK_TOTAL", TOTAL.to_string());
         std::env::set_var("BG_MOCK_DISK_FREE", FREE.to_string());
