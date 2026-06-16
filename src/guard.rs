@@ -90,6 +90,15 @@ fn evaluate(
     sweep_to_low_water(config, usage, used_pct, sink)
 }
 
+/// Log a "target locked, skipping" notice to stderr.
+///
+/// Separated into its own fn so the `#[allow]` applies to a function
+/// rather than to the macro invocation (which silently no-ops the allow).
+#[allow(clippy::print_stderr)]
+fn log_locked(path: &str) {
+    eprintln!("careen-guard: {path} is build-locked, skipping");
+}
+
 /// Run the sweep loop until usage drops below `low_water_pct` or candidates exhaust.
 ///
 /// Candidates are sorted descending by reclaimable_bytes (AC3).
@@ -134,13 +143,9 @@ fn sweep_to_low_water(
             }
             SweepResult::Locked => {
                 // Build-locked: skip this candidate and continue (AC8).
-                // eprintln is intentional here — this is operational status
-                // for a daemon-style tool where stderr is the audit trail.
-                #[allow(clippy::print_stderr)]
-                eprintln!(
-                    "careen-guard: {} is build-locked, skipping",
-                    candidate.path
-                );
+                // Intentional stderr: operational status for a daemon-style
+                // tool where stderr is the audit trail.
+                log_locked(&candidate.path);
             }
         }
     }
